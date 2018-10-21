@@ -4,7 +4,7 @@ node_modules/
 *.iml
 *.zip
 .env
-
+venv/
 word-macro-analyzer/*/
 
 engagement-creation-service/graph-descriptions/
