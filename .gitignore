@@ -5,6 +5,8 @@ node_modules/
 *.zip
 .env
 venv/
+grapl-cdk/index.js
+
 word-macro-analyzer/*/
 
 engagement-creation-service/graph-descriptions/
