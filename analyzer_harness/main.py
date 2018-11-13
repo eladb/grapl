@@ -1,13 +1,29 @@
-import threading
-from typing import List, Optional, Any
 
-import boto
+
+print('import ast')
+import ast
+print('import copy')
+import copy
+
+print('import threading')
+import threading
+print('import os')
+import os
+print('import json')
 import json
+print('import base64')
 import base64
 
-import boto3 as boto3
-import subgraph_merge_event_pb2
+
+print('from aead import AEAD')
 from aead import AEAD
+
+print('import boto3')
+import boto3
+print('import subgraph_merge_event_pb2')
+import subgraph_merge_event_pb2
+print('import pydgraph')
+import pydgraph
 
 
 try:
@@ -18,6 +34,22 @@ except:
 T = TypeVar('T')
 U = TypeVar('U')
 
+def convertExpr2Expression(Expr):
+    Expr.lineno = 0
+    Expr.col_offset = 0
+    result = ast.Expression(Expr.value, lineno=0, col_offset = 0)
+    return result
+def exec_with_return(code):
+    code_ast = ast.parse(code)
+    init_ast = copy.deepcopy(code_ast)
+    init_ast.body = code_ast.body[:-1]
+    last_ast = copy.deepcopy(code_ast)
+    last_ast.body = code_ast.body[-1:]
+    exec(compile(init_ast, "<ast>", "exec"), globals())
+    if type(last_ast.body[0]) == ast.Expr:
+        return eval(compile(convertExpr2Expression(last_ast.body[0]), "<ast>", "eval"),globals())
+    else:
+        exec(compile(last_ast, "<ast>", "exec"),globals())
 
 class Option(Generic[T]):
     def __init__(self, t):
@@ -204,6 +236,7 @@ class RootNode(object):
         if d.get('pid'):
             print('parsing process node')
             return RootNode(Process.from_json(j))
+
         elif d.get('path'):
             print('parsing file node')
             return RootNode(File.from_json(j))
@@ -221,20 +254,8 @@ class RootNode(object):
 
 def code_decryption_secret():
     # type: () -> str
-    secret_name = "CodeDecryptionSecret"
-    region_name = "us-west-2"
-
-    session = boto3.session.Session()
-    secrets_client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name,
-    )
-
-    get_secret_value_response = secrets_client.get_secret_value(
-        SecretId=secret_name
-    )
-
-    return get_secret_value_response['SecretBinary']
+    # TODO: Do not store secrets in environment
+    return os.environ['CODE_DECRYPTION_KEY']
 
 
 def decrypt_code(encrypted_code):
@@ -246,33 +267,55 @@ def decrypt_code(encrypted_code):
 
 def retrieve_py_analyzer_files(client=None):
     # type: (Optional[Any]) -> List[str]
+    print('retrieving py analyzer fields')
     client = client or boto3.client('s3')
 
+    bucket = os.environ['CODE_BUCKET']
+
+    print('listing py analyzer fields')
+
     list_response = client.list_objects(
-        Bucket="attacker_signatures",
-        Key="/python_signatures/"
+        Bucket=bucket,
+        Prefix="python_signatures/"
     )
 
-    keys = [r['Contents']['Key'] for r in list_response]
+    print('listed py analyzer fields {}'.format(list_response))
 
+    keys = [r['Key'] for r in list_response['Contents'] if not r['Key'].endswith('/')]
+
+
+
+    print('keys {}'.format(keys))
     encrypted_files = []
     for key in keys:
         enc_file = client.get_object(
-            Bucket="attacker_signatures",
+            Bucket=bucket,
             Key=key
-        )
+        )['Body'].read()
+
+        print('enc_file {}'.format(enc_file))
         encrypted_files.append(enc_file)
 
     return [decrypt_code(f) for f in encrypted_files]
 
 
-def execute_code(code, earliest, latest):
-    # type: (str, int, int) -> str
+def execute_code(code, earliest, latest, dgraph_client):
+    # type: (str, int, int, Any) -> Optional[RootNode]
 
     try:
-        return eval(compile(code, '<string>', 'exec'))
+        if earliest > 0:
+            earliest -= 1
+        latest = latest + 1
+        dgraph_client = dgraph_client
+        global output
+        output = None
+        eval(compile(code, '<string>', 'exec'))
+        output_copy = copy.deepcopy(output)
+        output = None
+        print('output {}'.format(output_copy))
+        return output_copy
     except Exception as e:
-        print(e)
+        print('exception when executing code {}'.format(e))
 
 
 def publish(sns, arn, message):
@@ -314,7 +357,9 @@ def _get_topic_arn(sns, name):
 def emit_incident(context, matches, sns_client=None):
     # type: (Any, List[RootNode], Option[Any]) -> None
 
+    print('getting sns client')
     sns = boto3.client('sns')
+    print('got sns client')
 
     # Chunk up messages since SNS has a size limit
     n = 50
@@ -353,17 +398,22 @@ def lambda_handler(event, context):
 
                 matches = []
                 for analyzer in analyzers:
-                    matches.extend(execute_code(analyzer, earliest, latest))
+                    client = pydgraph.DgraphClient(pydgraph.DgraphClientStub('db.mastergraph:9080'))
+
+                    match = execute_code(analyzer, earliest, latest, client)
+                    if match:
+                        matches.extend(match)
+                print('matches: {}'.format(matches))
 
                 if matches:
                     print('emit_incident')
                     emit_incident(context, matches)
                     print('acking message')
-                    ack_msg(message)
+                ack_msg(message)
 
-                return 1
+                return None
             except Exception as e:
-                print(e)
+                print('exception in ex {}'.format(e))
                 return e
 
         join_handles.append(threading.Thread(target=ex))

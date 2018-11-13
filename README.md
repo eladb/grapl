@@ -26,12 +26,10 @@ As an example, one can write a signature to catch a malicious word macro:
 
 ```
 {
-  q(func: eq(image_name, "word")) @cascade
-  @filter(gt(create_time, 0) AND lt(create_time, 600))
-  {
-    uid, pid, create_time, image_name, terminate_time, node_key, asset_id
-    children {
-        expand(_all_),
+  q(func: eq(image_name, "word")) @cascade {
+    uid, image_name, create_time, asset_id, node_key,
+    children { 
+        uid, image_name, create_time, asset_id, node_key,
     }
   }
 }

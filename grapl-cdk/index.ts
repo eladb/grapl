@@ -485,16 +485,23 @@ class GraphMerger extends cdk.Stack {
     }
 }
 
-class WordMacroAnalyzer extends cdk.Stack {
+class AnalyzerHarness extends cdk.Stack {
 
     constructor(parent: cdk.App,
                 id: string,
+                code_decryption_secret: cdk.Token,
                 event_producer_props: sns.TopicRefProps,
                 publishes_to_props: sns.TopicRefProps,
                 vpc_props: ec2.VpcNetworkRefProps
     ) {
         super(parent, id + '-stack');
 
+        let encrypted_analyzers_bucket = new s3.Bucket(
+            this,
+            'encrypted-analyzers-bucket',
+            {
+                bucketName: process.env.BUCKET_PREFIX + "-encrypted-analyzers-bucket"
+            });
 
         const event_producer = Topic.import(
             this,
@@ -513,28 +520,40 @@ class WordMacroAnalyzer extends cdk.Stack {
             'vpc',
             vpc_props
         );
-        let word_macro_analyzer = new lambda.Function(
-            this, 'word-macro-analyzer', {
-                runtime: lambda.Runtime.Python36,
-                handler: 'word-macro-analyzer.lambda_handler',
-                code: lambda.Code.file('./word-macro-analyzer.zip'),
+        
+        let analyzer_harness = new lambda.Function(
+            this, 'analyzer-harness', {
+                runtime: lambda.Runtime.Python27,
+                handler: 'main.lambda_handler',
+                code: lambda.Code.file('./analyzer_harness.zip'),
                 vpc: vpc,
+                environment: {
+                    "CODE_DECRYPTION_KEY": process.env.CODE_DECRYPTION_KEY,
+                    "CODE_BUCKET": process.env.BUCKET_PREFIX + "-encrypted-analyzers-bucket"
+                }
             }
         );
 
-        let word_macro_analyzer_queue =
-            new sqs.Queue(this, 'word-macro-analyzer-queue');
+        let analyzer_harness_queue =
+            new sqs.Queue(this, 'analyzer-harness-queue');
 
         subscribe_lambda_to_queue(
             this,
-            'wordMacroAnalyzer',
-            word_macro_analyzer,
-            word_macro_analyzer_queue
+            'analyzerHarness',
+            analyzer_harness,
+            analyzer_harness_queue
         );
 
-        event_producer.subscribeQueue(word_macro_analyzer_queue);
+        encrypted_analyzers_bucket.grantRead(analyzer_harness.role);
 
-        publishes_to.grantPublish(word_macro_analyzer.role);
+        event_producer.subscribeQueue(analyzer_harness_queue);
+
+        publishes_to.grantPublish(analyzer_harness.role);
+
+
+        analyzer_harness.addToRolePolicy(new cdk.PolicyStatement()
+            .addAction('sns:*')
+            .addResource(publishes_to.topicArn));
     }
 }
 
@@ -668,9 +687,10 @@ class Grapl extends cdk.App {
             network.grapl_vpc
         );
 
-        new WordMacroAnalyzer(
+        new AnalyzerHarness(
             this,
-            'word-macro-analyzer',
+            'analyzer-harness',
+            new cdk.Token(process.env.CODE_DECRYPTION_KEY),
             event_emitters.subgraph_merged_topic,
             event_emitters.incident_topic,
             network.grapl_vpc
@@ -694,7 +714,7 @@ process.stdout.write(new Grapl(process.argv).run());
 // cdk deploy node-identifier-stack && \
 // cdk deploy node-identity-mapper-stack && \
 // cdk deploy graph-merger-stack && \
-// cdk deploy word-macro-analyzer-stack && \
+// cdk deploy analyzer-harness-stack && \
 // cdk deploy engagement-creation-service-stack
 
 //
@@ -705,5 +725,5 @@ process.stdout.write(new Grapl(process.argv).run());
 // cdk diff node-identifier-stack && \
 // cdk diff node-identity-mapper-stack && \
 // cdk diff graph-merger-stack && \
-// cdk diff word-macro-analyzer-stack && \
+// cdk diff analyzer-harness-stack && \
 // cdk diff engagement-creation-service-stack
