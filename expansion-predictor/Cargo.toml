@@ -1,0 +1,6 @@
+[package]
+name = "expansion-predictor"
+version = "0.1.0"
+authors = ["Insanitybit <insanitybit@gmail.com>"]
+
+[dependencies]
