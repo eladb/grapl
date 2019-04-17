@@ -57,6 +57,18 @@ class ExecutionHit(object):
         )
 
 
+    @staticmethod
+    def from_process_file(label: str, hit: Dict[str, Any]) -> Any:
+        file_uid = NodeRef(hit['bin_file'][0]['uid'], 'File')
+        process_uid = NodeRef(hit['uid'], 'Process')
+
+        return ExecutionHit(
+            label,
+            [process_uid, file_uid],
+            [(process_uid.uid, "bin_file", file_uid.uid)]
+        )
+
+
 class ExecutionMiss(object):
     pass
 

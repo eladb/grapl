@@ -68,11 +68,11 @@ class Eq(Filter):
         return 'eq({}, "{}")'.format(self.predicate, self.value)
 
 
-
 class Process(object):
     def __init__(self):
         self.image_name = None
         self.child = None
+        self.bin_file = None
         self.node_key = None
 
     def with_image_name(self, contains=None, eq=None):
@@ -97,13 +97,18 @@ class Process(object):
         self.child = child
         return self
 
+    def with_bin_file(self, bin_file):
+        self.bin_file = bin_file
+        return self
+
     def to_query(self):
         # print(self.get_predicate_filters())
         # print(self.get_child_filters())
         query = base_query(
            "pid",
             self.get_predicate_filters(),
-            self.get_child_filters()
+            self.get_child_filters() + '\n'
+            + self.get_bin_file_filters(),
         )
         return query
 
@@ -136,6 +141,20 @@ class Process(object):
             self.child.get_child_filters()
         )
 
+    def get_bin_file_filters(self):
+        if not self.bin_file:
+            return ""
+
+        return """
+            bin_file {} {{
+                uid,
+                {}
+            }}
+        """.format(
+            self.bin_file.get_predicate_filters(),
+            "image_name, node_key",
+        )
+
 
 class File(object):
     def __init__(self):
@@ -154,6 +173,19 @@ class File(object):
     def with_node_key(self, eq):
         self.node_key = Eq('node_key', eq)
         return self
+
+    def get_predicate_filters(self):
+        fields = [self.path, self.node_key]
+        fields = [field.build() for field in fields if field]
+        fields = " AND ".join(fields)
+
+        field_query = """
+            @filter(
+                {}
+            )
+        """.format(fields)
+
+        return field_query
 
 
 if __name__ == '__main__':
