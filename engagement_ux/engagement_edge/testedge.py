@@ -1,10 +1,10 @@
 import requests
 
-url = "https://dzuo4ozud3.execute-api.us-east-1.amazonaws.com/"
+url = "https://dzuo4ozud3.execute-api.us-east-1.amazonaws.com/prod/"
 
-res = requests.get(url, data={
+res = requests.post(url, json ={
     "engagement_id": "foo",
-    "uid_hashes": []
+    "uid_hashes": {}
 })
 
 print(res)

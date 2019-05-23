@@ -591,7 +591,7 @@ pub fn set_file_schema(client: &DgraphClient) {
     client.alter(Default::default(), op_schema).wait().expect("set schema");
 }
 
-pub fn set_ip_address_schema(client: &DgraphClient) {
+pub fn set_ip_address_schema(client: &DgraphClient)  {
     let mut op_schema = api::Operation::new();
     op_schema.drop_all = false;
     op_schema.schema = r#"
@@ -619,11 +619,3 @@ pub fn set_connection_schema(client: &DgraphClient) {
     ).to_string();
     client.alter(Default::default(), op_schema).wait().expect("set schema");
 }
-
-sed  s/"34EOTDT"/"314KOTDT"/g ./events6.xml > events112.xml
-sed  s/"34EOTDT"/"315KOTDT"/g ./events6.xml > events113.xml
-sed  s/"34EOTDT"/"316KOTDT"/g ./events6.xml > events114.xml
-sed  s/"34EOTDT"/"317KOTDT"/g ./events6.xml > events115.xml
-sed  s/"34EOTDT"/"318KOTDT"/g ./events6.xml > events116.xml
-sed  s/"34EOTDT"/"319KOTDT"/g ./events6.xml > events117.xml
-sed  s/"34EOTDT"/"320KOTDT"/g ./events6.xml > events118.xml

@@ -13,7 +13,7 @@ cdk deploy grapl-graph-merger-stack && \
 cdk deploy grapl-analyzer-dispatcher-stack && \
 cdk deploy grapl-analyzer-executor-stack && \
 cdk deploy grapl-engagement-creator-stack && \
-cdk deploy grapl-engagement-creator-stack;
+cdk deploy engagementedgegrapl-stack
 
 # cdk deploy engagement-creation-service-stack
 

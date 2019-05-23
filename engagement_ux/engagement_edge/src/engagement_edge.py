@@ -148,10 +148,11 @@ def respond(err, res=None):
 
 
 def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    # print("Received event: " + json.dumps(event, indent=2))
+    print("Received event")
 
     try:
-        update = try_get_updated_graph(event["body"])
+        update = try_get_updated_graph(json.loads(event["body"]))
     except Exception as e:
         print('Failed with e {}'.format(e))
         return respond("Error fetching updates {}".format(e))
